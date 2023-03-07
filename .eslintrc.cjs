@@ -19,9 +19,16 @@ module.exports = {
 		"@typescript-eslint"
 	],
 	"rules": {
+		"curly": [
+			"error",
+			"all"
+		],
 		"indent": [
 			"error",
-			"tab"
+			"tab",
+			{
+				"SwitchCase": 1
+			}
 		],
 		"linebreak-style": [
 			"error",
