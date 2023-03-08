@@ -1,4 +1,4 @@
-// heavily based on the espruino Encode module by Gordon Williams
+// heavily based on the espruino Encoder module by Gordon Williams
 // http://www.espruino.com/modules/Encoder.js 
 
 export type ChangeListener = (direction: number) => void;
@@ -8,7 +8,7 @@ export default class Encoder {
 
 	private listeners: ChangeListener[] = [];
 
-	constructor(readonly pinA: Pin, readonly pinB: Pin) {
+	constructor(private readonly pinA: Pin, private readonly pinB: Pin) {
 		pinMode(this.pinA, "input_pulldown", false);
 		pinMode(this.pinB, "input_pulldown", false);
 
