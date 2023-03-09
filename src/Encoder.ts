@@ -9,9 +9,9 @@ export default class Encoder {
 	private listeners: ChangeListener[] = [];
 
 	constructor(private readonly pinA: Pin, private readonly pinB: Pin) {
-		pinMode(this.pinA, "input_pulldown", false);
-		pinMode(this.pinB, "input_pulldown", false);
-
+		pinMode(this.pinA, "input_pullup", false);
+		pinMode(this.pinB, "input_pullup", false);
+		this.handleChange();
 		setWatch(this.handleChange, this.pinA, { repeat: true });
 		setWatch(this.handleChange, this.pinB, { repeat: true });
 	}
