@@ -107,3 +107,4 @@ dist
 flashbin.bat
 eraseflash.bat
 espruinobin
+out.tmp.js

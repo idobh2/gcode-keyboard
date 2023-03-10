@@ -15,11 +15,11 @@ encoder.register((dir) => {
 	lcd.setCursor(10, 0);
 	lcd.print(`${counter}`.padStart(4, " "));
 });
-new Button(ENCODER_BTN_PIN).onClick(() => {
+new Button(ENCODER_BTN_PIN).onClick((state) => {
 	lcd.setCursor(0, 1);
-	lcd.print("Click!");
+	lcd.print(state);
 	setTimeout(() => {
 		lcd.setCursor(0, 1);
-		lcd.print("      ");
+		lcd.print("           ");
 	}, 500);
 });

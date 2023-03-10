@@ -1,5 +1,6 @@
 import { minify, bundle, transform } from "@swc/core";
 import path from "path";
+import fs from "fs/promises";
 import { init, sendCode } from "espruino";
 import { fileURLToPath } from "url";
 
@@ -14,6 +15,7 @@ try {
 			target: "es5",
 		}
 	});
+	await fs.writeFile(path.resolve(__dirname, "out.tmp.js"), transformed);
 	const { code } = await minify(transformed, {
 		compress: true,
 	});
