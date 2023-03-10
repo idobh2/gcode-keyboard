@@ -1,5 +1,6 @@
-export const ENCODER_PIN_A = D19;
-export const ENCODER_PIN_B = D22;
+export const ENCODER_PIN_A = D34; // requires 10K pull-up resistor
+export const ENCODER_PIN_B = D35; // requires 10K pull-up resistor
+export const ENCODER_BTN_PIN = D21;
 
 export const LCD_RS = D33;
 export const LCD_EN = D25;

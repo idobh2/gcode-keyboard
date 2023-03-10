@@ -1,65 +1,44 @@
-// heavily based on the espruino Encoder module by Gordon Williams
-// http://www.espruino.com/modules/Encoder.js 
+// heavily based on the espruino tutorial
+// https://www.espruino.com/Puck.js+Rotary+Encoder
 
 export type ChangeListener = (direction: number) => void;
 
 export default class Encoder {
-	private last: number;
+	private state: {
+		a: boolean;
+		b: boolean;
+		incr: 1 | -1 | 0;
+		second: boolean;
+	};
 
 	private listeners: ChangeListener[] = [];
 
 	constructor(private readonly pinA: Pin, private readonly pinB: Pin) {
 		pinMode(this.pinA, "input_pullup", false);
 		pinMode(this.pinB, "input_pullup", false);
-		this.handleChange();
+		this.state = {
+			a: this.pinA.read(),
+			b: this.pinB.read(),
+			incr: 0,
+			second: false,
+		};
 		setWatch(this.handleChange, this.pinA, { repeat: true });
 		setWatch(this.handleChange, this.pinB, { repeat: true });
 	}
 	private handleChange = () => {
-		// @ts-expect-error read() actually returns a number
-		const a: number = this.pinA.read();
-		// @ts-expect-error read() actually returns a number
-		const b: number = this.pinB.read();
-		let s = 0;
-		switch (this.last) {
-			case 0b00: {
-				if (a) {
-					s++;
+		const a = this.pinA.read();
+		const b = this.pinB.read();
+		if (a !== this.state.a) {
+			this.state.a = a;
+			if (b !== this.state.b) {
+				this.state.b = b;
+				const incr = (a === b) ? 1 : -1;
+				if (incr !== this.state.incr || !this.state.second) {
+					this.reportChange(incr);
 				}
-				if (b) {
-					s--;
-				}
-				break;
+				this.state.incr = incr;
+				this.state.second = !this.state.second;
 			}
-			case 0b01: {
-				if (!a) {
-					s--;
-				}
-				if (b) {
-					s++;
-				} break;
-			}
-			case 0b10: {
-				if (a) {
-					s--;
-				}
-				if (!b) {
-					s++;
-				} break;
-			}
-			case 0b11: {
-				if (!a) {
-					s++;
-				}
-				if (!b) {
-					s--;
-				}
-				break;
-			}
-		}
-		this.last = a | (b << 1);
-		if (s !== 0) {
-			this.reportChange(s);
 		}
 	};
 	private reportChange(dir: number) {
