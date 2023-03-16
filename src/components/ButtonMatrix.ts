@@ -29,7 +29,7 @@ export default class ButtonMatrix {
 			// write HIGH and see if the triggered pin has changed
 			rowPin.write(true);
 			let found = false;
-			if ( colPin.read() && colPin.read() && colPin.read()) { // 3 consecutive read to avoid noise breadboard
+			if (colPin.read() && colPin.read() && colPin.read()) { // 3 consecutive read to avoid noise breadboard
 				found = true;
 			}
 			rowPin.write(false);

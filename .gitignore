@@ -108,3 +108,4 @@ flashbin.bat
 eraseflash.bat
 espruinobin
 out.tmp.js
+out.tmp.min.js

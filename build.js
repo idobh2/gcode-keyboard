@@ -9,16 +9,22 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 try {
 	const { ["index.ts"]: { code: bundled } } = await bundle({
 		entry: path.resolve(__dirname, "src/index.ts"),
+		externalModules: ["Wifi", "http"]
 	});
 	const { code: transformed } = await transform(bundled, {
 		jsc: {
 			target: "es5",
-		}
+		},
+		module: {
+			type: "commonjs",
+			importInterop: "none"
+		},
 	});
 	await fs.writeFile(path.resolve(__dirname, "out.tmp.js"), transformed);
 	const { code } = await minify(transformed, {
 		compress: true,
 	});
+	await fs.writeFile(path.resolve(__dirname, "out.tmp.min.js"), code);
 
 	await new Promise(r => init(r));
 	// Espruino is globally defined in the "espruino" module
