@@ -9,7 +9,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 try {
 	const { ["index.ts"]: { code: bundled } } = await bundle({
 		entry: path.resolve(__dirname, "src/index.ts"),
-		externalModules: ["Wifi", "http"]
+		externalModules: ["Wifi", "http", "Storage"]
 	});
 	const { code: transformed } = await transform(bundled, {
 		jsc: {
@@ -17,7 +17,7 @@ try {
 		},
 		module: {
 			type: "commonjs",
-			importInterop: "none"
+			importInterop: "none",
 		},
 	});
 	await fs.writeFile(path.resolve(__dirname, "out.tmp.js"), transformed);
