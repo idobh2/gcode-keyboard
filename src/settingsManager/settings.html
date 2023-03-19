@@ -1,0 +1,138 @@
+<html>
+
+<head>
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<style>
+		body {
+			font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+			font-size: 14px
+		}
+
+		label {
+			min-width: 72px;
+			display: inline-block;
+		}
+
+		#main {
+			display: flex;
+			flex-direction: column;
+			align-content: center;
+			flex-wrap: wrap;
+		}
+
+		#lastError {
+			color: red;
+		}
+
+		#network,
+		#handler {
+			margin-bottom: 16px;
+		}
+
+		#network>h3,
+		#handler>h3 {
+			margin: 8px 0;
+		}
+
+		#save>button {
+			width: 100%;
+		}
+	</style>
+	<script>
+		window.addEventListener("load", async () => {
+			const q = document.querySelector.bind(document);
+			const lastErrorDiv = q("#lastError");
+			const ssid = q("#ssid");
+			const pass = q("#pass");
+			const handlerType = q("#handlerType");
+			const handlerAddr = q("#handlerAddress");
+			const handlerData = q("#handlerData");
+
+			function deployHandlerDataFields(handlerOptions, values = {}) {
+				handlerData.innerHTML = "";
+				for (const option of handlerOptions) {
+					handlerData.innerHTML += `<div><label for="${option.name}">${option.label}</label> <input type=${option.type} id="${option.name}" value="${values[option.name] ?? ""}" />`
+				}
+			}
+
+			const settings = await fetch("/settings").then(r => r.json());
+			const handlerOptions = await fetch("/handlerOptions").then(r => r.json());
+			const lastError = await fetch("/lastError").then(r => r.text());
+
+			if(lastError){
+				lastErrorDiv.innerText = `Last error: ${lastError}`;
+			}
+			handlerType.innerHTML = Object.keys(handlerOptions).map(o => `<option value="${o}">${o}</option>`);
+
+			if (settings) {
+				if (settings.net) {
+					ssid.value = settings.net.ssid ?? "";
+					pass.value = settings.net.pass ?? "";
+				}
+				if (settings.handler && settings.handler.type) {
+					handlerType.value = settings.handler.type;
+					handlerAddr.value = settings.handler.address ?? "";
+					deployHandlerDataFields(handlerOptions[settings.handler.type], settings.handler.data);
+				}
+			}
+
+			window.handlerSelectionChange = (e) => {
+				const selectedHandler = e.target.value;
+				deployHandlerDataFields(handlerOptions[selectedHandler], selectedHandler === settings.handler?.type ? settings.handler.data : {})
+			}
+
+			window.saveChanges = async () => {
+				if (!confirm("Save changes and reboot?")) {
+					return;
+				}
+				const settings = {
+					net: {
+						ssid: ssid.value,
+						pass: pass.value,
+					},
+					handler: {
+						type: handlerType.value,
+						address: handlerAddr.value,
+						data: [...handlerData.querySelectorAll("input")].reduce((a, b) => ({ ...a, [b.id]: b.value }), {})
+					}
+				}
+				await fetch("/settings", { method: "POST", body: JSON.stringify(settings) });
+			}
+		});
+	</script>
+</head>
+
+<body>
+	<div id="main">
+		<h2>GCode Keyboard Settings</h2>
+		<div id="lastError"></div>
+		<div id="network">
+			<h3>Network settings</h3>
+			<div>
+				<label for="ssid">SSID</label>
+				<input id="ssid" />
+			</div>
+			<div>
+				<label for="ssid">Password</label>
+				<input id="pass" type="password" />
+			</div>
+		</div>
+		<div id="handler">
+			<h3>GCode server settings</h3>
+			<div>
+				<label for="handlerType">Type</label>
+				<select onChange="handlerSelectionChange(event)" id="handlerType"></select>
+			</div>
+			<div>
+				<label for="handlerAddress">Address</label>
+				<input id="handlerAddress" />
+			</div>
+			<div id="handlerData"></div>
+		</div>
+		<div id="save">
+			<button onClick="saveChanges()">Save</button>
+		</div>
+	</div>
+</body>
+
+</html>

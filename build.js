@@ -1,4 +1,5 @@
 import { minify, bundle, transform } from "@swc/core";
+import minifyHtml from "@minify-html/node";
 import path from "path";
 import fs from "fs/promises";
 import { init, sendCode } from "espruino";
@@ -7,9 +8,26 @@ import { fileURLToPath } from "url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 try {
+	const settingsHtmlPath = path.resolve(__dirname, "src/settingsManager/settings.html");
+	const settingsHtmlContent = await fs.readFile(settingsHtmlPath, "utf-8");
+	const minifiedHtmlContent = minifyHtml.minify(
+		Buffer.from(
+			settingsHtmlContent
+				.replace(/(`|\$)/g, "\\$1")
+		),
+		{
+			minify_css: true,
+			minify_js: true,
+		}
+	);
+	await fs.writeFile(`${settingsHtmlPath}.js`, `export default \`${minifiedHtmlContent}\`;`);
+
 	const { ["index.ts"]: { code: bundled } } = await bundle({
 		entry: path.resolve(__dirname, "src/index.ts"),
-		externalModules: ["Wifi", "http", "Storage"]
+		externalModules: ["Wifi", "http", "Storage"],
+		options: {
+
+		}
 	});
 	const { code: transformed } = await transform(bundled, {
 		jsc: {

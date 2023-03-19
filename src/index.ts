@@ -1,9 +1,9 @@
-import { buttonMatrix, encoder, encoderButton, lcd } from "./devices";
-import * as wifi from "Wifi";
-import { request } from "./httpUtils";
+import "./utils/polyfill";
+import { lcd } from "./devices";
 import { ensureConnection } from "./settingsManager";
 
 lcd.clear();
+lcd.print("Connecting...");
 ensureConnection()
 	.then(handler => {
 		console.log("Got handler!");

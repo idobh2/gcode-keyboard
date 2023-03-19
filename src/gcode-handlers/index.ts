@@ -1,5 +1,6 @@
 import OctoPrint, { OctoPrintData } from "./impl/OctoPrint";
 import ESP3DWebUI, { ESP3DWebUIData } from "./impl/ESP3DWebUI";
+import { GCodeHandlerClass } from "./GCodeHandler";
 
 export interface HandlerDataMapping {
 	OctoPrint: OctoPrintData,
@@ -8,7 +9,7 @@ export interface HandlerDataMapping {
 
 export type HandlerName = keyof HandlerDataMapping;
 
-const handlers = {
+const handlers: { [key in HandlerName]: GCodeHandlerClass<HandlerDataMapping[key]> } = {
 	OctoPrint,
 	ESP3DWebUI
 };

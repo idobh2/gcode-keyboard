@@ -1,9 +1,12 @@
 import * as wifi from "Wifi";
-import handlers from "../handlers";
-import GCodeHandler from "../handlers/GCodeHandler";
-import { promisify } from "../utils";
+import handlers, { HandlerDataMapping, HandlerName } from "../gcode-handlers";
+import { GCodeHandler, GCodeHandlerClass } from "../gcode-handlers/GCodeHandler";
+import { promisify, sleep } from "../utils";
 import { startSettingsServer } from "./settingsServer";
-import { readSettings, Settings } from "./storage";
+import { readSettings } from "./storage";
+import { Settings } from "./types";
+
+export { startSettingsServer } from "./settingsServer";
 
 function validateSettings(): Settings | null {
 	const settings = readSettings();
@@ -19,6 +22,8 @@ function validateSettings(): Settings | null {
 	return settings;
 }
 
+
+
 export function ensureConnection() {
 	return Promise.resolve()
 		.then(() => {
@@ -27,23 +32,25 @@ export function ensureConnection() {
 				return settings;
 			}
 			console.log("Invalid connection settings!");
-			return Promise.reject();
+			return Promise.reject(new Error("Invalid settings"));
 		})
 		.then((settings) => {
-			return promisify(wifi.connect)(settings.net?.ssid ?? "", { password: settings.net?.pass ?? "" }).then(() => settings);
+			return Promise.race([
+				sleep(10000).then(() => Promise.reject(new Error("Network connection timeout"))),
+				promisify(wifi.connect)(settings.net?.ssid ?? "", { password: settings.net?.pass ?? "" })
+			]).then(() => settings);
 		})
 		.then((settings) => {
-			const Handler = handlers[settings.handler?.type];
-			// @ts-expect-error FIXME
+			if (!settings.handler) {
+				return Promise.reject(new Error("Invalid settings"));
+			}
+			const Handler = handlers[settings.handler?.type] as GCodeHandlerClass<HandlerDataMapping[HandlerName]>;
 			const handler: GCodeHandler = new Handler(settings.handler.address, settings.handler.data);
 			return handler.healthcheck().then(() => handler);
 		})
 		.catch((e) => {
 			console.log("Failed setting up handler", e);
-			startSettingsServer();
+			startSettingsServer(e);
 			return Promise.reject(e);
 		});
-
-
-
 }

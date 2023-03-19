@@ -42,6 +42,10 @@ export default class ButtonMatrix {
 		this.reportClick(this.matrixProps.table[rowIndex][colIndex]);
 	};
 
+	get buttonLabels(): string[] {
+		return this.matrixProps.table.reduce((a, b) => [...a, ...b], []);
+	}
+
 	private reportClick(state: string) {
 		this.listeners.forEach(l => l(state));
 	}
