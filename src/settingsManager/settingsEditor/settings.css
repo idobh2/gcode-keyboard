@@ -24,6 +24,7 @@ body {
 
 #lastError {
 	color: red;
+	width: 256px;
 }
 
 #network,

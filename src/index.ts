@@ -7,5 +7,7 @@ lcd.print("Connecting...");
 ensureConnection()
 	.then((handler) => {
 		console.log("Got handler!");
+		lcd.clear();
+		lcd.print("Ready");
 	})
 	.catch((e) => console.log("Failed getting gcode handler. Waiting for settings to reset", e));

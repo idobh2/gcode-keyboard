@@ -4,7 +4,7 @@ import { GCodeHandler, GCodeHandlerDataField } from "../GCodeHandler";
 export interface ESP3DWebUIData { }
 
 export default class ESP3DWebUI implements GCodeHandler {
-	constructor(readonly address: string, readonly data: ESP3DWebUIData) {
+	constructor(private readonly address: string, private readonly data: ESP3DWebUIData) {
 
 	}
 	healthcheck(): Promise<void> {
