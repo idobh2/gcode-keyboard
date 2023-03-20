@@ -1,6 +1,6 @@
 import { State as ButtonState } from "./components/Button";
 import { encoder, encoderButton, lcd, buttonMatrix } from "./devices";
-import { GCodeHandler } from "./gcode-handlers/GCodeHandler";
+import { GCodeHandler } from "./gcodeHandlers/GCodeHandler";
 import { readSettings } from "./settingsManager/storage";
 
 const INCREMENTS = [0.1, 1, 10, 100];

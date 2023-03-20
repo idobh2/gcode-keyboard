@@ -1,6 +1,6 @@
 import * as wifi from "Wifi";
-import handlers, { HandlerDataMapping, HandlerName } from "../gcode-handlers";
-import { GCodeHandler, GCodeHandlerClass } from "../gcode-handlers/GCodeHandler";
+import handlers, { HandlerDataMapping, HandlerName } from "../gcodeHandlers";
+import { GCodeHandler, GCodeHandlerClass } from "../gcodeHandlers/GCodeHandler";
 import { promisify, sleep } from "../utils";
 import { startSettingsServer } from "./settingsServer";
 import { readSettings } from "./storage";

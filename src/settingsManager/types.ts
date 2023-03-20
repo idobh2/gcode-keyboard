@@ -1,5 +1,5 @@
 import { ButtonMatrixKeys } from "../devices";
-import { HandlerDataMapping, HandlerName } from "../gcode-handlers";
+import { HandlerDataMapping, HandlerName } from "../gcodeHandlers";
 
 export interface Settings<T extends HandlerName = HandlerName> {
 	net?: {

@@ -6,7 +6,7 @@ import settingsEditorJs from "./settingsEditor/settings.min.js";
 import settingsEditorCss from "./settingsEditor/settings.css.js";
 import { lcd } from "../devices";
 import { readSettings, writeSettings } from "./storage";
-import handlers, { HandlerName } from "../gcode-handlers";
+import handlers, { HandlerName } from "../gcodeHandlers";
 
 const AP_SSID = "GCode-Keyboard";
 const AP_PASS = "12345678";
