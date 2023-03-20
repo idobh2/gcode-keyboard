@@ -1,0 +1,53 @@
+<html>
+
+<head>
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<link rel="stylesheet" href="/settings.css" />
+	<script src="/settings.js"></script>
+</head>
+
+<body>
+	<div id="main">
+		<h2>GCode Keyboard Settings</h2>
+		<div id="lastError"></div>
+		<div id="network">
+			<h3>Network settings</h3>
+			<div class="field">
+				<label for="ssid">SSID</label>
+				<input id="ssid" />
+			</div>
+			<div class="field">
+				<label for="ssid">Password</label>
+				<input id="pass" type="password" />
+			</div>
+		</div>
+		<div id="handler">
+			<h3>GCode server settings</h3>
+			<div class="field">
+				<label for="handlerType">Type</label>
+				<select onChange="handlerSelectionChange(event)" id="handlerType"></select>
+			</div>
+			<div class="field">
+				<label for="handlerAddress">Address</label>
+				<input id="handlerAddress" />
+			</div>
+			<div id="handlerData"></div>
+		</div>
+		<div id="commands">
+			<h3>Commands Settings</h3>
+			<div class="field">
+				<label for="command">Command</label>
+				<select onChange="commandSelectionChange(event)" id="command"></select>
+			</div>
+			<div class="field">
+				<label for="gcode">GCode</label>
+				<textarea id="gcode" onkeyup="gcodeChanged(event)"></textarea>
+			</div>
+		</div>
+		<div id="save">
+			<button onClick="saveChanges()">Save</button>
+		</div>
+	</div>
+</body>
+
+</html>

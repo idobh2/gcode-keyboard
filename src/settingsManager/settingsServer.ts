@@ -1,7 +1,9 @@
 import { promisify, sleep } from "../utils";
 import * as wifi from "Wifi";
 import * as http from "http";
-import settingsHtml from "./settings.html.js";
+import settingsEditorHtml from "./settingsEditor/settings.html.js";
+import settingsEditorJs from "./settingsEditor/settings.min.js";
+import settingsEditorCss from "./settingsEditor/settings.css.js";
 import { lcd } from "../devices";
 import { readSettings, writeSettings } from "./storage";
 import handlers, { HandlerName } from "../gcode-handlers";
@@ -13,7 +15,16 @@ let lastError = "";
 
 function mainPageHandler(req: http.IncomingMessage, rep: http.ServerResponse<http.IncomingMessage>) {
 	rep.writeHead(200, { "Content-Type": "text/html" });
-	rep.end(settingsHtml);
+	rep.end(settingsEditorHtml);
+}
+
+function mainPageJsHandler(req: http.IncomingMessage, rep: http.ServerResponse<http.IncomingMessage>) {
+	rep.writeHead(200, { "Content-Type": "text/html" });
+	rep.end(settingsEditorJs);
+}
+function mainPageCssHandler(req: http.IncomingMessage, rep: http.ServerResponse<http.IncomingMessage>) {
+	rep.writeHead(200, { "Content-Type": "text/html" });
+	rep.end(settingsEditorCss);
 }
 
 function settingsHandler(req: http.IncomingMessage, rep: http.ServerResponse<http.IncomingMessage>) {
@@ -60,6 +71,10 @@ function requestHandler(req: http.IncomingMessage, rep: http.ServerResponse<http
 	console.log(`Handling path ${pathname}`);
 	if ("/" === pathname) {
 		return mainPageHandler(req, rep);
+	} else if ("/settings.css" === pathname) {
+		return mainPageCssHandler(req, rep);
+	} else if ("/settings.js" === pathname) {
+		return mainPageJsHandler(req, rep);
 	} else if ("/settings" === pathname) {
 		return settingsHandler(req, rep);
 	} else if ("/handlerOptions" === pathname) {

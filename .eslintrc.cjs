@@ -1,6 +1,7 @@
 module.exports = {
+	"ignorePatterns": ["src/settingsManager/settingsEditor/settings.*.js"],
 	"env": {
-		"browser": false,
+		"browser": true,
 		"es2021": true,
 		"node": true,
 	},

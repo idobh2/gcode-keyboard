@@ -7,20 +7,51 @@ import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+async function buildSettingsEditor() {
+	const writeSettingsEditorFile = async (basename, targetBaseName, preProcess) => {
+		const fullPath = path.resolve(__dirname, "src/settingsManager/settingsEditor", basename);
+		const fullTargetPath = path.resolve(__dirname, "src/settingsManager/settingsEditor", targetBaseName);
+		const content = await fs.readFile(fullPath, "utf-8");
+		const processedContent = await preProcess(content);
+		const replacedContent = processedContent.toString("utf-8").replace(/(`|\${|\\)/g, "\\$1");
+		await fs.writeFile(fullTargetPath, `export default \`${replacedContent}\`;`);
+	};
+
+	await writeSettingsEditorFile("settings.html", "settings.html.js", async (content) => {
+		return minifyHtml.minify(
+			Buffer.from(content),
+			{
+				minify_css: true,
+				minify_js: true,
+			}
+		);
+	});
+	await writeSettingsEditorFile("settings.css", "settings.css.js", async (content) => {
+		return minifyHtml.minify(
+			Buffer.from(content),
+			{
+				minify_css: true,
+				minify_js: true,
+			}
+		);
+	});
+
+	await writeSettingsEditorFile("settings.js", "settings.min.js", async (content) => {
+		const { code: transformed } = await transform(content, {
+			jsc: {
+				target: "es2019"
+			}
+		});
+		const { code } = await minify(transformed, {
+			compress: true,
+		});
+		return code;
+	});
+
+}
+
 try {
-	const settingsHtmlPath = path.resolve(__dirname, "src/settingsManager/settings.html");
-	const settingsHtmlContent = await fs.readFile(settingsHtmlPath, "utf-8");
-	const minifiedHtmlContent = minifyHtml.minify(
-		Buffer.from(
-			settingsHtmlContent
-				.replace(/(`|\$)/g, "\\$1")
-		),
-		{
-			minify_css: true,
-			minify_js: true,
-		}
-	);
-	await fs.writeFile(`${settingsHtmlPath}.js`, `export default \`${minifiedHtmlContent}\`;`);
+	await buildSettingsEditor();
 
 	const { ["index.ts"]: { code: bundled } } = await bundle({
 		entry: path.resolve(__dirname, "src/index.ts"),

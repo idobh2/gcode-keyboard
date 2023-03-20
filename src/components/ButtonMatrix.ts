@@ -1,15 +1,15 @@
-export type EventListener = (state: string) => void;
+export type EventListener<KeymapType> = (state: KeymapType) => void;
 
-export interface ButtonMatrixProperties {
+export interface ButtonMatrixProperties<KeymapType> {
 	rows: Pin[];
 	cols: Pin[];
-	table: string[][];
+	table: KeymapType[][];
 }
 
-export default class ButtonMatrix {
-	private listeners: EventListener[] = [];
+export default class ButtonMatrix<KeymapType = string> {
+	private listeners: EventListener<KeymapType>[] = [];
 
-	constructor(readonly matrixProps: ButtonMatrixProperties) {
+	constructor(readonly matrixProps: ButtonMatrixProperties<KeymapType>) {
 		matrixProps.cols.forEach(pin => {
 			pinMode(pin, "input_pullup", false);
 			setWatch(this.handleColumnTriggered, pin, { repeat: true, edge: "falling", debounce: 10, });
@@ -42,15 +42,15 @@ export default class ButtonMatrix {
 		this.reportClick(this.matrixProps.table[rowIndex][colIndex]);
 	};
 
-	get buttonLabels(): string[] {
+	get buttonLabels(): KeymapType[] {
 		return this.matrixProps.table.reduce((a, b) => [...a, ...b], []);
 	}
 
-	private reportClick(state: string) {
+	private reportClick(state: KeymapType) {
 		this.listeners.forEach(l => l(state));
 	}
 
-	onClick(l: EventListener) {
+	onClick(l: EventListener<KeymapType>) {
 		this.listeners.push(l);
 	}
 }

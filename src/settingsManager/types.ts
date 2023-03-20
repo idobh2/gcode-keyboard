@@ -1,3 +1,4 @@
+import { ButtonMatrixKeys } from "../devices";
 import { HandlerDataMapping, HandlerName } from "../gcode-handlers";
 
 export interface Settings<T extends HandlerName = HandlerName> {
@@ -10,5 +11,5 @@ export interface Settings<T extends HandlerName = HandlerName> {
 		address: string;
 		data: HandlerDataMapping[T]
 	},
-	keymap: Record<string, string>;
+	keymap: Record<ButtonMatrixKeys, string>;
 }

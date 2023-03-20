@@ -109,4 +109,4 @@ eraseflash.bat
 espruinobin
 out.tmp.js
 out.tmp.min.js
-src/settingsManager/settings.html.js
+src/settingsManager/settingsEditor/settings.*.js

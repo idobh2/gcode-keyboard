@@ -1,0 +1,48 @@
+body {
+	font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+	font-size: 14px
+}
+
+.field {
+	display: flex;
+	margin-bottom: 8px;
+}
+.field > label {
+	min-width: 72px;
+	display: inline-block;
+}
+.field > *:nth-child(2) {
+	flex-grow: 1;
+} 
+
+#main {
+	display: flex;
+	flex-direction: column;
+	align-content: center;
+	flex-wrap: wrap;
+}
+
+#lastError {
+	color: red;
+}
+
+#network,
+#handler,
+#commands {
+	margin-bottom: 16px;
+}
+
+#network>h3,
+#handler>h3,
+#commands>h3 {
+	margin: 8px 0;
+}
+
+#gcode {
+	vertical-align: top;
+	min-height: 192px;
+}
+
+#save>button {
+	width: 100%;
+}
