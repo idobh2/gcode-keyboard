@@ -8,6 +8,7 @@ export interface GCodeHandlerDataField<Data> {
 // using interface instead of class due to transpiling+espruino limitations
 export interface GCodeHandler {
 	healthcheck(): Promise<void>;
+	sendGCode(commands: string[]): Promise<void>;
 }
 
 export interface GCodeHandlerClass<Data> {

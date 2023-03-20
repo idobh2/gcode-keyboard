@@ -10,6 +10,9 @@ export default class ESP3DWebUI implements GCodeHandler {
 	healthcheck(): Promise<void> {
 		throw new Error("Healthcheck not implemented");
 	}
+	sendGCode(commands: string[]): Promise<void> {
+		throw new Error(`Can't send commands:${commands.join(", ")}`);
+	}
 	static describeDataFields(): GCodeHandlerDataField<ESP3DWebUIData>[] {
 		return [];
 	}

@@ -9,7 +9,7 @@ export interface ButtonMatrixProperties<KeymapType> {
 export default class ButtonMatrix<KeymapType = string> {
 	private listeners: EventListener<KeymapType>[] = [];
 
-	constructor(readonly matrixProps: ButtonMatrixProperties<KeymapType>) {
+	constructor(private readonly matrixProps: ButtonMatrixProperties<KeymapType>) {
 		matrixProps.cols.forEach(pin => {
 			pinMode(pin, "input_pullup", false);
 			setWatch(this.handleColumnTriggered, pin, { repeat: true, edge: "falling", debounce: 10, });
@@ -52,5 +52,6 @@ export default class ButtonMatrix<KeymapType = string> {
 
 	onClick(l: EventListener<KeymapType>) {
 		this.listeners.push(l);
+		return () => this.listeners.splice(this.listeners.indexOf(l), 1);
 	}
 }

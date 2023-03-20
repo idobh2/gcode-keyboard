@@ -66,5 +66,6 @@ export default class Button {
 
 	onClick(l: EventListener) {
 		this.listeners.push(l);
+		return () => this.listeners.splice(this.listeners.indexOf(l), 1);
 	}
 }

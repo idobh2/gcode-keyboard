@@ -44,7 +44,8 @@ export default class Encoder {
 	private reportChange(dir: number) {
 		this.listeners.forEach(l => l(dir));
 	}
-	register(listener: ChangeListener) {
-		this.listeners.push(listener);
+	register(l: ChangeListener) {
+		this.listeners.push(l);
+		return () => this.listeners.splice(this.listeners.indexOf(l), 1);
 	}
 }
