@@ -1,3 +1,5 @@
+// heavily based on the espruino module
+// http://www.espruino.com/modules/ws.js
 import { Socket } from "net";
 
 /** Minify String.fromCharCode() call */
@@ -9,21 +11,31 @@ function buildKey() {
 	const toHash = randomString + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 	return {
 		source: randomString,
+		// eslint-disable-next-line @typescript-eslint/no-var-requires
 		hashed: btoa(require("crypto").SHA1(toHash))
 	};
 }
 
 export interface WebSocketOptions {
-	port: number;
-	protocolVersion: number;
-	origin: string;
-	keepAlive: number;
-	masking: boolean;
-	path: string;
-	protocol: string;
-	connected: boolean;
-	headers: Record<string, string>;
+	port?: number;
+	protocolVersion?: number;
+	origin?: string;
+	keepAlive?: number;
+	masking?: boolean;
+	path?: string;
+	protocol?: string;
+	headers?: Record<string, string>;
 }
+
+const defaultOptions: WebSocketOptions = {
+	headers: {},
+	keepAlive: 60000,
+	masking: true,
+	origin: "Espruino",
+	path: "/",
+	port: 80,
+	protocolVersion: 13,
+};
 
 export class WebSocket {
 	private lastData = "";
@@ -32,8 +44,14 @@ export class WebSocket {
 
 	private socket: Socket | null = null;
 
-	constructor(private readonly host: string, private readonly options: WebSocketOptions) {
+	private pingTimer: NodeJS.Timer | null = null;
+
+	private connected = false;
+
+	constructor(private readonly host: string, private readonly options: WebSocketOptions = {}) {
 		this.key = buildKey();
+		this.options = { ...defaultOptions, ...options };
+		this.initializeConnection();
 	}
 
 	private initializeConnection() {
@@ -41,20 +59,19 @@ export class WebSocket {
 		// eslint-disable-next-line @typescript-eslint/no-var-requires
 		require("net").connect({
 			host: this.host,
-			port: this.port
+			port: this.options.port
 		}, this.onConnect.bind(this));
 	}
 
 	private onConnect(socket) {
 		this.socket = socket;
-		const ws = this;
 		socket.on("data", this.parseData.bind(this));
-		socket.on("close", function () {
-			if (ws.pingTimer) {
-				clearInterval(ws.pingTimer);
-				ws.pingTimer = undefined;
+		socket.on("close", () => {
+			if (this.pingTimer) {
+				clearInterval(this.pingTimer);
+				this.pingTimer = null;
 			}
-			ws.emit("close");
+			this.emit("close");
 		});
 
 		this.handshake();
@@ -63,7 +80,6 @@ export class WebSocket {
 	private parseData(data) {
 		// see https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API/Writing_WebSocket_servers
 		// Note, docs specify bits 0-7, etc - but BIT 0 is the MSB, 7 is the LSB
-		const ws = this;
 		this.emit("rawData", data);
 
 		if (this.lastData.length) {
@@ -75,9 +91,9 @@ export class WebSocket {
 			// FIXME - not a good idea!
 			if (data.indexOf(this.key.hashed) > -1 && data.indexOf("\r\n\r\n") > -1) {
 				this.emit("handshake");
-				this.pingTimer = setInterval(function () {
-					ws.send("ping", 0x89);
-				}, this.keepAlive);
+				this.pingTimer = setInterval(() => {
+					this.send("ping", 0x89);
+				}, this.options.keepAlive);
 				data = data.substring(data.indexOf("\r\n\r\n") + 4);
 				this.connected = true;
 				this.emit("open");
@@ -111,19 +127,25 @@ export class WebSocket {
 					this.emit("ping");
 					break;
 				case 0x8:
-					this.socket.end();
+					this.socket?.end();
 					break;
 				case 0:
 				case 1:
-					var mask = [0, 0, 0, 0];
+				case 2: {
+					// TODO: Treat opcode2 (binary frame) differently
+					let mask = [0, 0, 0, 0];
+					let msg = "";
 					if (data.charCodeAt(1) & 128 /* mask */) {
 						mask = [data.charCodeAt(offset++), data.charCodeAt(offset++),
-						data.charCodeAt(offset++), data.charCodeAt(offset++)];
+							data.charCodeAt(offset++), data.charCodeAt(offset++)];
 					}
-					var msg = "";
-					for (let i = 0; i < dataLen; i++) { msg += String.fromCharCode(data.charCodeAt(offset++) ^ mask[i & 3]); }
+
+					for (let i = 0; i < dataLen; i++) {
+						msg += String.fromCharCode(data.charCodeAt(offset++) ^ mask[i & 3]);
+					}
 					this.emit("message", msg);
 					break;
+				}
 				default:
 					console.log("WS: Unknown opcode " + opcode);
 			}
@@ -133,21 +155,25 @@ export class WebSocket {
 
 	private handshake() {
 		const socketHeader = [
-			"GET " + this.path + " HTTP/1.1",
+			"GET " + this.options.path + " HTTP/1.1",
 			"Host: " + this.host,
 			"Upgrade: websocket",
 			"Connection: Upgrade",
 			"Sec-WebSocket-Key: " + this.key.source,
-			"Sec-WebSocket-Version: " + this.protocolVersion,
-			"Origin: " + this.origin
+			"Sec-WebSocket-Version: " + this.options.protocolVersion,
+			"Origin: " + this.options.origin
 		];
-		if (this.protocol) { socketHeader.push("Sec-WebSocket-Protocol: " + this.protocol); }
-
-		for (const key in this.headers) {
-			if (this.headers.hasOwnProperty(key)) { socketHeader.push(key + ": " + this.headers[key]); }
+		if (this.options.protocol) {
+			socketHeader.push("Sec-WebSocket-Protocol: " + this.options.protocol);
 		}
 
-		this.socket.write(socketHeader.join("\r\n") + "\r\n\r\n");
+		for (const key in this.options.headers) {
+			if (key in this.options.headers) {
+				socketHeader.push(key + ": " + this.options.headers[key]);
+			}
+		}
+
+		this.socket?.write(socketHeader.join("\r\n") + "\r\n\r\n");
 	}
 	send(msg, opcode) {
 		opcode = opcode === undefined ? 0x81 : opcode;
@@ -155,46 +181,31 @@ export class WebSocket {
 		if (msg.length > 125) {
 			size = 126;
 		}
-		this.socket.write(strChr(opcode, size + (this.masking ? 128 : 0)));
+		this.socket?.write(strChr(opcode, size + (this.options.masking ? 128 : 0)));
 
 		if (size == 126) {
 			// Need to write extra bytes for longer messages
-			this.socket.write(strChr(msg.length >> 8));
-			this.socket.write(strChr(msg.length));
+			this.socket?.write(strChr(msg.length >> 8));
+			this.socket?.write(strChr(msg.length));
 		}
 
-		if (this.masking) {
-			const mask = [];
+		if (this.options.masking) {
+			const mask: number[] = [];
 			let masked = "";
-			for (var ix = 0; ix < 4; ix++) {
+			for (let ix = 0; ix < 4; ix++) {
 				const rnd = Math.floor(Math.random() * 255);
 				mask[ix] = rnd;
 				masked += strChr(rnd);
 			}
-			for (var ix = 0; ix < msg.length; ix++) { masked += strChr(msg.charCodeAt(ix) ^ mask[ix & 3]); }
-			this.socket.write(masked);
+			for (let ix = 0; ix < msg.length; ix++) {
+				masked += strChr(msg.charCodeAt(ix) ^ mask[ix & 3]);
+			}
+			this.socket?.write(masked);
 		} else {
-			this.socket.write(msg);
+			this.socket?.write(msg);
 		}
 	}
 	close() {
-		this.socket.end();
+		this.socket?.end();
 	}
-}
-
-function WebSocket2(host, options) {
-	this.socket = null;
-	options = options || {};
-	this.host = host;
-	this.port = options.port || 80;
-	this.protocolVersion = options.protocolVersion || 13;
-	this.origin = options.origin || "Espruino";
-	this.keepAlive = options.keepAlive * 1000 || 60000;
-	this.masking = options.masking !== undefined ? options.masking : true;
-	this.path = options.path || "/";
-	this.protocol = options.protocol;
-	this.lastData = "";
-
-	this.connected = options.connected || false;
-	this.headers = options.headers || {};
 }
