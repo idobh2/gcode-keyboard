@@ -10,16 +10,30 @@ export interface ESP3DWebUIData {
 export default class ESP3DWebUI implements GCodeHandler {
 	private ws: WebSocket;
 
+	private connectionIdPromise: Promise<void>;
+
 	private connectionId = "";
 
 	constructor(private readonly address: string, private readonly data: ESP3DWebUIData) {
-		this.ws = new WebSocket(this.address, { port: data.wsPort ?? 81 });
-		this.on("data", (data: string) => {
-			const [, id] = data.match(/CURRENT_ID:(\d+)/) ?? [];
-			if (id) {
-				console.log(`Got connection id ${id}`);
-				this.connectionId = id;
-			} else if (["PING:", "ACTIVE_ID:", "DHT:"].find(n => data.startsWith(n))) {
+		this.setupWebSocket();
+	}
+
+	private setupWebSocket() {
+		this.ws = new WebSocket(this.address, { port: this.data.wsPort ?? 81 });
+		this.connectionIdPromise = new Promise((resolve) => {
+			const connectionIdListener = (data: string) => {
+				const [, id] = data.match(/CURRENT_ID:(\d+)/) ?? [];
+				if (id) {
+					console.log(`Got connection id ${id}`);
+					this.connectionId = id;
+					this.ws.removeListener("message", connectionIdListener);
+					resolve();
+				}
+			};
+			this.ws.on("message", connectionIdListener);
+		});
+		this.ws.on("message", (data: string) => {
+			if (["PING:", "ACTIVE_ID:", "DHT:"].find(n => data.startsWith(n))) {
 				console.log(`Ignoring internal message ${data}`);
 			} else {
 				console.log(`Emitting message as esp3DWebUiMessage ${data}`);
@@ -39,13 +53,16 @@ export default class ESP3DWebUI implements GCodeHandler {
 		return waitForNextMessagePromise;
 	}
 	healthcheck(): Promise<void> {
-		return this.sendGRBL("?").then((response) => {
-			console.log(`Healthcheck got response=${response}`);
-			if (!response.includes("ok")) {
-				return Promise.reject(new Error("Healthcheck failed"));
-			}
-		});
+		return this.connectionIdPromise
+			.then(() => this.sendGRBL("?"))
+			.then((response) => {
+				console.log(`Healthcheck got response=${response}`);
+				if (!response.includes("MPos:")) {
+					return Promise.reject(new Error("Healthcheck failed"));
+				}
+			});
 	}
+
 	sendGCode(commands: string[]): Promise<void> {
 		// avoiding async/await for now...
 		const commandsLeft = [...commands.filter(n => !!n)];
@@ -58,6 +75,7 @@ export default class ESP3DWebUI implements GCodeHandler {
 		};
 		return executeNextCommand();
 	}
+
 	static describeDataFields(): GCodeHandlerDataField<ESP3DWebUIData>[] {
 		return [
 			{

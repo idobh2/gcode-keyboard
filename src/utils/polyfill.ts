@@ -3,7 +3,7 @@
 declare global {
 	interface Object {
 		on: <T = unknown>(event: string, listener: (data: T) => void) => void;
-		emit: <T = unknown>(event: string, data?: T) => void
+		emit: <T = unknown>(event: string, data?: T) => void;
 	}
 }
 

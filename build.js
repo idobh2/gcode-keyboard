@@ -55,7 +55,7 @@ try {
 
 	const { ["index.ts"]: { code: bundled } } = await bundle({
 		entry: path.resolve(__dirname, "src/index.ts"),
-		externalModules: ["Wifi", "http", "Storage"],
+		externalModules: ["Wifi", "http", "net", "crypto", "Storage"],
 		options: {
 
 		}
