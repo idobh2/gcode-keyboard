@@ -175,7 +175,7 @@ export class WebSocket {
 
 		this.socket?.write(socketHeader.join("\r\n") + "\r\n\r\n");
 	}
-	send(msg, opcode) {
+	send(msg: string, opcode?: number) {
 		opcode = opcode === undefined ? 0x81 : opcode;
 		let size = msg.length;
 		if (msg.length > 125) {
