@@ -1,14 +1,16 @@
 import { GCodeHandler, GCodeHandlerDataField } from "../GCodeHandler";
 import { WebSocket } from "../../utils/ws";
 
+const CNCJS_CONNECTION_TYPES = ["Grbl", "Marlin", "Smoothie", "TinyG"] as const;
+
 // eslint-disable-next-line @typescript-eslint/no-empty-interface
 export interface CNCjsData {
 	wsPort: number;
 	token: string;
 	serialPort: string;
+	serialBaudrate: number;
+	controllerType: typeof CNCJS_CONNECTION_TYPES;
 }
-
-type CNCjsEvent = [string, string | Record<string, unknown>];
 
 const SOCKET_IO_PING_INTERVAL_MS = 25000;
 
@@ -18,66 +20,60 @@ export default class CNCjs implements GCodeHandler {
 	private connectionPromise: Promise<void>;
 
 	constructor(private readonly address: string, private readonly data: CNCjsData) {
+		this.data.serialBaudrate = this.data.serialBaudrate || 115200;
+		this.data.controllerType = this.data.controllerType || "Grbl";
 		this.setupWebSocket();
 	}
 
 	private setupWebSocket() {
-		this.ws = new WebSocket(this.address, { 
+		this.ws = new WebSocket(this.address, {
 			port: this.data.wsPort ?? 8080,
 			path: `/socket.io/?EIO=3&transport=websocket&token=${this.data.token}`
 		});
 		this.connectionPromise = new Promise((resolve) => {
 			const connectionListener = (data: string) => {
-				if (data.startsWith("3")) {
+				if (data.includes("startup")) {
 					console.log("Connected");
+					this.sendEvent("open", {
+						controllerType: this.data.controllerType,
+						baudrate: Number(this.data.serialBaudrate),
+						rtscts: false,
+						pin: {
+							dtr: null,
+							rts: null
+						}
+					});
+				} else if (data.includes("serialport:open")) {
+					console.log("Port opened");
 					this.ws.removeListener("message", connectionListener);
 					resolve();
 				}
 			};
 			this.ws.on("message", connectionListener);
 		});
-		this.ws.on("message", (data: string) => {
-			if (data.startsWith("4")) {
-				const [, messageJson] = data.match(/+d+(.*)/) || [];
-				if (!messageJson) {
-					console.log(`Empty message ${data}`);
-					return;
-				}
-				let message: CNCjsEvent;
-				try {
-					message = JSON.parse(messageJson);
-				} catch (e) {
-					console.log("Error while parsing message", e);
-					return;
-				}
-				console.log("Emitting message as cncjsEvent", message);
-				this.emit("cncjsEvent", message);
-			} else {
-				console.log(`Ignoring message ${data}`);
-			}
-		});
 		this.ws.on("open", () => {
 			this.ws.send("2");
 			setInterval(() => {
 				this.ws.send("2");
 			}, SOCKET_IO_PING_INTERVAL_MS);
+			// request to open and wait for serial:open event to be received in connectionPromise
 		});
 	}
-	private sendCommand(cmd: string): Promise<CNCjsEvent> {
+	private sendEvent(event: string, ...args: unknown[]) {
 		if (!this.data.serialPort) {
 			console.log("Can't send command without serial port");
-			return Promise.reject(new Error("Can't send command without serial port"));
+			throw new Error("Can't send command without serial port");
 		}
-		const waitForNextMessagePromise = new Promise<CNCjsEvent>((resolve) => {
-			this.on<CNCjsEvent>("cncjsEvent", (msg) => {
-				const [type] = msg;
-				if ("serial:write" === type) {
-					// ignore echo;
-					return;
-				}
-				resolve(msg);
-			});
-		});
+		const toWrite = `42${JSON.stringify([
+			event,
+			this.data.serialPort,
+			...args
+
+		])}`;
+		console.log(`Sending event: ${toWrite}`);
+		this.ws.send(toWrite);
+	}
+	private sendCommand(cmd: string): void {
 		const cmdParts = cmd.split(";");
 		let cmdType = "";
 		if (1 === cmdParts.length) {
@@ -86,31 +82,15 @@ export default class CNCjs implements GCodeHandler {
 			cmdType = cmdParts.shift() as string;
 		}
 		const cmdData = cmdParts[0];
-		this.ws.send(`42${JSON.stringify(["command", this.data.serialPort, cmdType, cmdData])}`);
-		return waitForNextMessagePromise;
+		this.sendEvent("command", cmdType, cmdData);
 	}
 	healthcheck(): Promise<void> {
-		return this.connectionPromise
-			.then(() => this.sendCommand("?"))
-			.then((response) => {
-				console.log(`Healthcheck got response=${response}`);
-				if ("string" !== response[1] || !response[1].includes("MPos:")) {
-					return Promise.reject(new Error("Healthcheck failed"));
-				}
-			});
+		return this.connectionPromise;
 	}
 
 	sendGCode(commands: string[]): Promise<void> {
-		// avoiding async/await for now...
-		const commandsLeft = [...commands.filter(n => !!n)];
-		const executeNextCommand = () => {
-			const next = commandsLeft.shift();
-			if (!next) {
-				return;
-			}
-			return this.sendCommand(next).then(executeNextCommand);
-		};
-		return executeNextCommand();
+		commands.forEach(cmd => this.sendCommand(cmd));
+		return Promise.resolve();
 	}
 
 	static describeDataFields(): GCodeHandlerDataField<CNCjsData>[] {
@@ -131,6 +111,18 @@ export default class CNCjs implements GCodeHandler {
 				name: "serialPort",
 				label: "Serial Port",
 				description: "Serial port of the machine in the host",
+				type: "text"
+			},
+			{
+				name: "serialBaudrate",
+				label: "Serial Baudrate",
+				description: "Serial port Baudrate (default: 115200)",
+				type: "text"
+			},
+			{
+				name: "controllerType",
+				label: "Controller Type",
+				description: `One of: ${CNCJS_CONNECTION_TYPES.join(", ")} (default: Grbl)`,
 				type: "text"
 			},
 		];
