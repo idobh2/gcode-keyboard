@@ -35,11 +35,12 @@ export default (handler: GCodeHandler) => {
 	});
 	const removeBtnMatListener = buttonMatrix.onClick((btn) => {
 		if (sendingCommands) {
+			console.log(`Ignoring press on "${btn}" while sending previous command set`);
 			return;
 		}
 		const commandRaw = keymap[btn];
 		if (!commandRaw) {
-			console.log(`No command registered for key "${commandRaw}"`);
+			console.log(`No command registered for key "${btn}"`);
 			return;
 		}
 		const commands = commandRaw.replace(/{{increment}}/g, `${increment}`).split("\n").map(n => n.trim());

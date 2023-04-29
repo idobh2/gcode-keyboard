@@ -1,5 +1,4 @@
 import { GCodeHandler, GCodeHandlerDataField } from "../GCodeHandler";
-import { WebSocket } from "../../utils/ws";
 import { RequestOptions, request } from "../../utils/http";
 import { decodePayload, encodePayload, Packet } from "../../utils/socket.io-parser";
 
@@ -15,7 +14,7 @@ export interface CNCjsData {
 }
 
 export default class CNCjs implements GCodeHandler {
-	private ws: WebSocket;
+	private socketEventEmitter: object = {};
 
 	private connectionPromise: Promise<void>;
 
@@ -37,22 +36,13 @@ export default class CNCjs implements GCodeHandler {
 	private postRequest(packets: Packet[]) {
 		const body = encodePayload(packets);
 		console.log("Sending post request", body);
-		this.serverRequest({ method: "POST", body });
-	}
-
-	private sendPing() {
-		this.postRequest([{ type: "ping" }]);
-	}
-
-	private sendMessage(data: unknown) {
-		this.postRequest([{ type: "message", data }]);
+		return this.serverRequest({ method: "POST", body });
 	}
 
 	private startPolling() {
 		const doPoll = () => {
 			this.serverRequest()
 				.then((data) => {
-					console.log("Received data", data);
 					const packets = decodePayload(data);
 					if (packets.find(p => "close" === p.type)) {
 						console.log("Connection closed");
@@ -76,11 +66,9 @@ export default class CNCjs implements GCodeHandler {
 	private setupSocketIoClient() {
 		return this.serverRequest()
 			.then(data => {
-				console.log("setup data", data);
 				const packets = decodePayload(data);
 				const openPacket = packets.find(p => "open" === p.type);
 				if (openPacket) {
-					console.log("openPacket.data", openPacket.data);
 					const { sid, pingInterval } = (JSON.parse(openPacket.data as string) ?? {}) as { sid: string; pingInterval: number };
 					console.log(`Got sid=${sid} pingInterval=${pingInterval}`);
 					if (!sid) {
@@ -92,6 +80,8 @@ export default class CNCjs implements GCodeHandler {
 						this.sendPing();
 					}, pingInterval);
 					this.startPolling();
+
+					return this.openSerialPort();
 				} else {
 					return Promise.reject(new Error("Failed to get session ID"));
 				}
@@ -107,21 +97,8 @@ export default class CNCjs implements GCodeHandler {
 		// re-setup client
 		this.setupSocketIoClient();
 	}
-	private sendEvent(event: string, ...args: unknown[]) {
-		if (!this.data.serialPort) {
-			console.log("Can't send command without serial port");
-			throw new Error("Can't send command without serial port");
-		}
-		const toWrite = `42${JSON.stringify([
-			event,
-			this.data.serialPort,
-			...args
 
-		])}`;
-		console.log(`Sending event: ${toWrite}`);
-		this.ws.send(toWrite);
-	}
-	private sendCommand(cmd: string): void {
+	private buildCommand(cmd: string): string[] {
 		const cmdParts = cmd.split(";");
 		let cmdType = "";
 		if (1 === cmdParts.length) {
@@ -130,11 +107,48 @@ export default class CNCjs implements GCodeHandler {
 			cmdType = cmdParts.shift() as string;
 		}
 		const cmdData = cmdParts[0];
-		this.sendEvent("command", cmdType, cmdData);
+		return ["command", this.data.serialPort, cmdType, cmdData];
 	}
 
 	private onMessage(data?: unknown) {
-		console.log("Got message data", data);
+		if (Array.isArray(data) && "string" === typeof data[0]) {
+			this.socketEventEmitter.emit(data[0], data[1]);
+		}
+	}
+
+	private sendPing() {
+		return this.postRequest([{ type: "ping" }]);
+	}
+
+	private sendMessages(messagesData: unknown[]) {
+		return this.postRequest(messagesData.map(d => ({ type: "message", data: d })));
+	}
+
+	private openSerialPort() {
+		const portOpenedPromise = new Promise<void>((resolve, reject) => {
+			const portOpenListener = (data) => {
+				this.socketEventEmitter.removeListener("serialport:open", portOpenListener);
+				if (data.inuse) {
+					return resolve();
+				}
+				return reject(new Error(`Couldn't open serial port ${this.data.serialPort}`));
+			};
+			this.socketEventEmitter.on("serialport:open", portOpenListener);
+		});
+		this.sendMessages([[
+			"open",
+			this.data.serialPort,
+			{
+				controllerType: this.data.controllerType,
+				baudrate: this.data.serialBaudrate,
+				rtscts: false,
+				pin: {
+					dtr: null,
+					rts: null
+				}
+			}
+		]]);
+		return portOpenedPromise;
 	}
 
 	healthcheck(): Promise<void> {
@@ -142,8 +156,7 @@ export default class CNCjs implements GCodeHandler {
 	}
 
 	sendGCode(commands: string[]): Promise<void> {
-		commands.forEach(cmd => this.sendCommand(cmd));
-		return Promise.resolve();
+		return this.sendMessages(commands.map(cmd => this.buildCommand(cmd))).then(() => { /* */ });
 	}
 
 	static describeDataFields(): GCodeHandlerDataField<CNCjsData>[] {
