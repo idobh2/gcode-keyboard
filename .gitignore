@@ -110,3 +110,4 @@ espruinobin
 out.tmp.js
 out.tmp.min.js
 src/settingsManager/settingsEditor/settings.*.js
+manualsettings.ts

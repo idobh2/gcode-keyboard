@@ -5,7 +5,7 @@ export type HttpMethod = "GET" | "POST" | "HEAD";
 export interface RequestOptions {
 	method?: HttpMethod;
 	headers?: Record<string, string | number>;
-	body?: Record<string, unknown>;
+	body?: string | Record<string, unknown>;
 }
 
 export function request(reqUrl: string, options: RequestOptions = {}): Promise<string> {
@@ -13,7 +13,7 @@ export function request(reqUrl: string, options: RequestOptions = {}): Promise<s
 		const { method = "GET", headers = {}, body } = options;
 		let serializedBody: string | undefined;
 		if ("POST" === method && body) {
-			serializedBody = JSON.stringify(body);
+			serializedBody = "string" === typeof body ? body : JSON.stringify(body);
 			headers["Content-Type"] = "application/json";
 			headers["Content-Length"] = serializedBody.length;
 		}
