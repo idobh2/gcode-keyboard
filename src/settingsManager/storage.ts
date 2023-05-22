@@ -3,7 +3,17 @@ import * as storage from "Storage";
 import defaultSettings from "./defaultSettings";
 import { Settings } from "./types";
 
+export type SettingsEditorFiles = Record<string, { mime: string; content: string }>;
+
 const STORAGE_KEY = "gcodekeyboard";
+
+export function readSettingsEditorFiles(): SettingsEditorFiles {
+	const sefiles = storage.readJSON("sefiles", true) as (SettingsEditorFiles | undefined);
+	if (!sefiles) {
+		return {};
+	}
+	return sefiles;
+}
 
 export function readSettings(): Settings {
 	let settings = storage.readJSON(STORAGE_KEY, true) as (Settings | undefined);

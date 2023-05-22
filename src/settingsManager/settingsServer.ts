@@ -1,30 +1,37 @@
 import { promisify, sleep } from "../utils";
 import * as wifi from "Wifi";
 import * as http from "http";
-import settingsEditorHtml from "./settingsEditor/settings.html.js";
-import settingsEditorJs from "./settingsEditor/settings.min.js";
-import settingsEditorCss from "./settingsEditor/settings.css.js";
 import { lcd } from "../devices";
-import { readSettings, writeSettings } from "./storage";
+import { readSettings, writeSettings, readSettingsEditorFiles, SettingsEditorFiles } from "./storage";
 import handlers, { HandlerName } from "../gcodeHandlers";
 
 const AP_SSID = "GCode-Keyboard";
 const AP_PASS = "12345678";
+const CHUNK_SIZE = 64;
 
 let lastError = "";
+let settingEditorFiles: SettingsEditorFiles | null = null;
 
-function mainPageHandler(req: http.IncomingMessage, rep: http.ServerResponse<http.IncomingMessage>) {
-	rep.writeHead(200, { "Content-Type": "text/html" });
-	rep.end(settingsEditorHtml);
-}
-
-function mainPageJsHandler(req: http.IncomingMessage, rep: http.ServerResponse<http.IncomingMessage>) {
-	rep.writeHead(200, { "Content-Type": "text/html" });
-	rep.end(settingsEditorJs);
-}
-function mainPageCssHandler(req: http.IncomingMessage, rep: http.ServerResponse<http.IncomingMessage>) {
-	rep.writeHead(200, { "Content-Type": "text/html" });
-	rep.end(settingsEditorCss);
+function pageHandler(pathname: string, rep: http.ServerResponse<http.IncomingMessage>): boolean {
+	const file = pathname.replace(/^\//, "") || "settings.html";
+	if (!settingEditorFiles) {
+		settingEditorFiles = readSettingsEditorFiles();
+	}
+	if (!settingEditorFiles || !settingEditorFiles[file]) {
+		return false;
+	}
+	const { content, mime } = settingEditorFiles[file];
+	rep.writeHead(200, { "Content-Type": mime || "text/html" });
+	
+	rep.on("drain", () => {
+		for(let i = CHUNK_SIZE; i < content.length; i += CHUNK_SIZE){
+			rep.write(content.substring(i, i + CHUNK_SIZE));
+		}
+		rep.end("");
+	});
+	rep.write(content.substring(0, CHUNK_SIZE));
+	settingEditorFiles = null;
+	return true;
 }
 
 function settingsHandler(req: http.IncomingMessage, rep: http.ServerResponse<http.IncomingMessage>) {
@@ -69,21 +76,17 @@ function lastErrorHandler(req: http.IncomingMessage, rep: http.ServerResponse<ht
 function requestHandler(req: http.IncomingMessage, rep: http.ServerResponse<http.IncomingMessage>) {
 	const { pathname = "/" } = url.parse(req.url, true);
 	console.log(`Handling path ${pathname}`);
-	if ("/" === pathname) {
-		return mainPageHandler(req, rep);
-	} else if ("/settings.css" === pathname) {
-		return mainPageCssHandler(req, rep);
-	} else if ("/settings.js" === pathname) {
-		return mainPageJsHandler(req, rep);
-	} else if ("/settings" === pathname) {
+	if ("/settings" === pathname) {
 		return settingsHandler(req, rep);
 	} else if ("/handlerOptions" === pathname) {
 		return handlerOptionsHandler(req, rep);
 	} else if ("/lastError" === pathname) {
 		return lastErrorHandler(req, rep);
 	} else {
-		rep.writeHead(404, { "Content-Type": "text/plain" });
-		rep.end(`Cannot ${req.method ?? "GET"} ${pathname}`);
+		if (!pageHandler(pathname, rep)) {
+			rep.writeHead(404, { "Content-Type": "text/plain" });
+			rep.end(`Cannot ${req.method ?? "GET"} ${pathname}`);
+		}
 	}
 }
 

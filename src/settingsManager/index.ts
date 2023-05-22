@@ -46,6 +46,7 @@ export function ensureConnection() {
 			}
 			const Handler = handlers[settings.handler?.type] as GCodeHandlerClass<HandlerDataMapping[HandlerName]>;
 			const handler: GCodeHandler = new Handler(settings.handler.address, settings.handler.data);
+			global.handler = handler;
 			return handler.healthcheck().then(() => handler);
 		})
 		.catch((e) => {

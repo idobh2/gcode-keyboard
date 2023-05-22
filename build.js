@@ -5,28 +5,24 @@ import fs from "fs/promises";
 import { init, sendCode } from "espruino";
 import { fileURLToPath } from "url";
 
+const SERIAL_PORT = "COM5";
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+const sendCodeToSerialPort = code => new Promise(r => sendCode(SERIAL_PORT, code, r));
+
 async function buildSettingsEditor() {
-	const writeSettingsEditorFile = async (basename, targetBaseName, preProcess) => {
+	const writeSettingsEditorFile = async (basename, contentType, preProcess) => {
 		const fullPath = path.resolve(__dirname, "src/settingsManager/settingsEditor", basename);
-		const fullTargetPath = path.resolve(__dirname, "src/settingsManager/settingsEditor", targetBaseName);
 		const content = await fs.readFile(fullPath, "utf-8");
 		const processedContent = await preProcess(content);
-		const replacedContent = processedContent.toString("utf-8").replace(/(`|\${|\\)/g, "\\$1");
-		await fs.writeFile(fullTargetPath, `export default \`${replacedContent}\`;`);
+		return {
+			mime: contentType,
+			content: processedContent.toString("utf-8")
+		};
 	};
 
-	await writeSettingsEditorFile("settings.html", "settings.html.js", async (content) => {
-		return minifyHtml.minify(
-			Buffer.from(content),
-			{
-				minify_css: true,
-				minify_js: true,
-			}
-		);
-	});
-	await writeSettingsEditorFile("settings.css", "settings.css.js", async (content) => {
+	const settingsHtml = await writeSettingsEditorFile("settings.html", "text/html", async (content) => {
 		return minifyHtml.minify(
 			Buffer.from(content),
 			{
@@ -36,7 +32,17 @@ async function buildSettingsEditor() {
 		);
 	});
 
-	await writeSettingsEditorFile("settings.js", "settings.min.js", async (content) => {
+	const settingsCss = await writeSettingsEditorFile("settings.css", "text/css", async (content) => {
+		return minifyHtml.minify(
+			Buffer.from(content),
+			{
+				minify_css: true,
+				minify_js: true,
+			}
+		);
+	});
+
+	const settingsJs = await writeSettingsEditorFile("settings.js", "text/javascript", async (content) => {
 		const { code: transformed } = await transform(content, {
 			jsc: {
 				target: "es2019"
@@ -48,14 +54,18 @@ async function buildSettingsEditor() {
 		return code;
 	});
 
+	return {
+		"settings.html": settingsHtml,
+		"settings.css": settingsCss,
+		"settings.js": settingsJs
+	};
+
 }
 
 try {
-	await buildSettingsEditor();
-
 	const { ["index.ts"]: { code: bundled } } = await bundle({
 		entry: path.resolve(__dirname, "src/index.ts"),
-		externalModules: ["Wifi", "http", "net", "crypto", "Storage"],
+		externalModules: ["Wifi", "http", "net", "crypto", "fs", "Storage"],
 		options: {
 
 		}
@@ -84,7 +94,11 @@ try {
 	Espruino.Config.WEB_BLUETOOTH = false;
 	Espruino.Config.BLUETOOTH_LOW_ENERGY = false;
 	/* eslint-enable no-undef */
-	await new Promise(r => sendCode("COM5", code, r));
+	const settingsEditorFiles = await buildSettingsEditor();
+	const seFilesStatement = `require("Storage").writeJSON("sefiles", ${JSON.stringify(settingsEditorFiles)})`;
+	await sendCodeToSerialPort(seFilesStatement);
+	await sendCodeToSerialPort(code);
+
 	console.log("Build finished successfully");
 	process.exit(0);
 } catch (e) {
